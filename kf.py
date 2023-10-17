@@ -1,7 +1,12 @@
 import math
+import scipy
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.random import randn
+import poliastro.constants.general as constant
+import dynamics
+
+# 卡尔曼滤波
 
 # 卡尔曼预测步
 def KF_predict(x, P, F, Q, B=0, u=0):
@@ -28,6 +33,106 @@ def KF_run(x0, P0, F, H, Q, R, zs, B=0, u=0):
         else:
             x_new, P_new = KF_predict(x, P, F, Q, B, u)
             x_next, P_next = KF_update(z, x_new, P_new, H, R)
+        x, P = x_next, P_next
+        # print(x)
+        # print(P)
+        xs.append(x)
+        cov.append(P)
+    xs, cov = np.array(xs), np.array(cov)
+    return xs, cov
+
+
+# 无迹卡尔曼滤波
+
+# 动力学过程方程
+def F_UKF(x, dt):
+    mu = constant.GM_earth
+    y = dynamics.mypropagation(x, dt, mu, dt)
+    return y[-1,:]
+
+# 观测方程
+def H_UKF(y):
+    H = np.array([[1., 0., 0., 0., 0., 0.],
+                  [0., 1., 0., 0., 0., 0.],
+                  [0., 0., 1., 0., 0., 0.]])
+    z = np.dot(H, y)
+    return z
+
+# 权重矩阵
+def weights_UKF(alpha, beta, n, kappa):
+    lambda_ = alpha**2 * (n + kappa) - n
+    Wc = np.full(2*n + 1, 1. / (2*(n + lambda_)))
+    Wm = np.full(2*n + 1, 1. / (2*(n + lambda_)))
+    Wc[0] = lambda_ / (n + lambda_) + (1. - alpha**2 + beta)
+    Wm[0] = lambda_ / (n + lambda_)
+    return Wm, Wc
+
+# sigma点
+def sigmas_UKF(alpha, beta, kappa, X, P):
+    n = len(X)
+    lambda_ = alpha**2 * (n + kappa) - n
+    sigmas = np.zeros((2*n+1, n))
+    U = scipy.linalg.cholesky((n+lambda_)*P) # sqrt
+    sigmas[0] = X
+    for k in range (n):
+        sigmas[k+1] = X + U[k]
+        sigmas[n+k+1] = X - U[k]
+    return sigmas
+
+# 预测步
+def UKF_predict(x, P, Q, Wm, Wc, alpha, beta, kappa, dt):
+    n = len(x)
+    sigmas = sigmas_UKF(alpha, beta, kappa, x, P)    
+    sigmas_f = np.zeros((2*n+1, n))
+    for i in range(2*n+1):
+        sigmas_f[i] = F_UKF(sigmas[i], dt)
+    x_new = np.dot(Wm, sigmas_f)
+    kmax, n = sigmas.shape
+    P_new = np.zeros((n, n))
+    for k in range(kmax):
+        y = sigmas_f[k] - x
+        P_new += Wc[k] * np.outer(y, y)
+    P_new += Q
+    return x_new, P_new, sigmas_f
+
+# 更新步
+def UKF_update(z, x, P, R, sigmas_f, Wm, Wc):
+    nz = len(z)
+    nx = len(x)
+    sigmas_num = 2*nx+1
+    sigmas_h = np.zeros((sigmas_num, nz))
+    for i in range(sigmas_num):
+        sigmas_h[i] = H_UKF(sigmas_f[i])
+    
+    zp = np.dot(Wm, sigmas_h)
+    Pz = np.zeros((nz, nz))
+    for k in range(sigmas_num):
+        y = sigmas_h[k] - zp
+        Pz += Wc[k] * np.outer(y, y)
+    Pz += R
+
+    Pxz = np.zeros((nx, nz))
+    for i in range(sigmas_num):
+        Pxz += Wc[i] * np.outer(sigmas_f[i] - x, sigmas_h[i] - zp)
+    K = np.dot(Pxz, np.linalg.inv(Pz))
+    
+    x_next = x + np.dot(K, z - zp)
+    P_next = P - np.dot(K, Pz).dot(K.T)
+
+    return x_next, P_next
+
+# 执行无迹卡尔曼滤波
+def UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt):
+    xs, cov = [], []
+    x, P = x0, P0
+    Wm, Wc = weights_UKF(alpha, beta, kappa)
+    for z in zs:
+        if np.linalg.norm(z-zs[0])==0:
+            sigmas_f = sigmas_UKF(alpha, beta, kappa, x, P)
+            x_next, P_next = UKF_update(z, x, P, R, sigmas_f, Wm, Wc)
+        else:
+            x_new, P_new, sigmas_f = UKF_predict(x, P, Q, Wm, Wc, alpha, beta, kappa, dt)
+            x_next, P_next = UKF_update(z, x, P, R, sigmas_f, Wm, Wc)
         x, P = x_next, P_next
         # print(x)
         # print(P)
