@@ -47,7 +47,7 @@ def KF_run(x0, P0, F, H, Q, R, zs, B=0, u=0):
 # 动力学过程方程
 def F_UKF(x, dt):
     mu = constant.GM_earth
-    y = dynamics.mypropagation(x, dt, mu, dt)
+    y = dynamics.mypropagation(x, dt, mu.value, dt)
     return y[-1,:]
 
 # 观测方程
@@ -79,6 +79,18 @@ def sigmas_UKF(alpha, beta, kappa, X, P):
         sigmas[n+k+1] = X - U[k]
     return sigmas
 
+# 无迹转换
+def UT(sigmas, Wm, Wc):
+    x = np.dot(Wm, sigmas)
+    kmax, n = sigmas.shape
+    P = np.zeros((n, n))
+    for k in range(kmax):
+        y = sigmas[k] - x
+        P += Wc[k] * np.outer(y, y)
+    # eigenvalues = np.linalg.eigvals(P)
+    # print(eigenvalues)
+    return x, P
+
 # 预测步
 def UKF_predict(x, P, Q, Wm, Wc, alpha, beta, kappa, dt):
     n = len(x)
@@ -86,12 +98,7 @@ def UKF_predict(x, P, Q, Wm, Wc, alpha, beta, kappa, dt):
     sigmas_f = np.zeros((2*n+1, n))
     for i in range(2*n+1):
         sigmas_f[i] = F_UKF(sigmas[i], dt)
-    x_new = np.dot(Wm, sigmas_f)
-    kmax, n = sigmas.shape
-    P_new = np.zeros((n, n))
-    for k in range(kmax):
-        y = sigmas_f[k] - x
-        P_new += Wc[k] * np.outer(y, y)
+    x_new, P_new = UT(sigmas_f, Wm, Wc)
     P_new += Q
     return x_new, P_new, sigmas_f
 
@@ -104,20 +111,18 @@ def UKF_update(z, x, P, R, sigmas_f, Wm, Wc):
     for i in range(sigmas_num):
         sigmas_h[i] = H_UKF(sigmas_f[i])
     
-    zp = np.dot(Wm, sigmas_h)
-    Pz = np.zeros((nz, nz))
-    for k in range(sigmas_num):
-        y = sigmas_h[k] - zp
-        Pz += Wc[k] * np.outer(y, y)
+    zp, Pz = UT(sigmas_h, Wm, Wc)
     Pz += R
 
     Pxz = np.zeros((nx, nz))
     for i in range(sigmas_num):
         Pxz += Wc[i] * np.outer(sigmas_f[i] - x, sigmas_h[i] - zp)
     K = np.dot(Pxz, np.linalg.inv(Pz))
-    
+
     x_next = x + np.dot(K, z - zp)
     P_next = P - np.dot(K, Pz).dot(K.T)
+    # eigenvalues = np.linalg.eigvals(P_next)
+    # print(eigenvalues)
 
     return x_next, P_next
 
@@ -125,15 +130,18 @@ def UKF_update(z, x, P, R, sigmas_f, Wm, Wc):
 def UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt):
     xs, cov = [], []
     x, P = x0, P0
-    Wm, Wc = weights_UKF(alpha, beta, kappa)
+    n = len(x)
+    Wm, Wc = weights_UKF(alpha, beta, n, kappa)
     for z in zs:
         if np.linalg.norm(z-zs[0])==0:
             sigmas_f = sigmas_UKF(alpha, beta, kappa, x, P)
             x_next, P_next = UKF_update(z, x, P, R, sigmas_f, Wm, Wc)
         else:
             x_new, P_new, sigmas_f = UKF_predict(x, P, Q, Wm, Wc, alpha, beta, kappa, dt)
-            x_next, P_next = UKF_update(z, x, P, R, sigmas_f, Wm, Wc)
+            x_next, P_next = UKF_update(z, x_new, P_new, R, sigmas_f, Wm, Wc)
         x, P = x_next, P_next
+        # eigenvalues = np.linalg.eigvals(P)
+        # print(eigenvalues)
         # print(x)
         # print(P)
         xs.append(x)
