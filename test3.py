@@ -48,7 +48,7 @@ print('Orbit Period:',orb.period.to(u.hour))
 
 # 测试数据
 noise=1e3
-count = 120
+count = 200
 dt = 1.
 xs,zs = compute_data(rv0, noise, count, dt)
 t = np.linspace(0, (count-1)*dt, count)
@@ -97,30 +97,46 @@ test_plot=1
 if test_plot==1:
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.plot(xs_ukf[:,0], xs_ukf[:,1], xs_ukf[:,2], label="UKF")
-    ax.scatter(zs[:,0], zs[:,1], zs[:,2], c='red', s=5, facecolors='none', label='Measurement')
+    xs_1 = xs_ukf/Re.value
+    zs_1 = zs/Re.value
+    ax.plot(xs_1[:,0], xs_1[:,1], xs_1[:,2], label="UKF")
+    ax.scatter(zs_1[:,0], zs_1[:,1], zs_1[:,2], c='red', s=1, facecolors='none', label='Measurement')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
     plt.legend()
     plt.show()
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(t,xs_ukf[:,0])
-    ax.scatter(t, zs[:,0], facecolors='none', c='red', s=8)
+    fig, axs = plt.subplots(2, 3)
+    axs[0,0].plot(t, cov_ukf[:,0,0]/1e6)
+    axs[0,0].set_title(r'$\sigma^2_x$')
+    axs[0,1].plot(t, cov_ukf[:,1,1]/1e6)
+    axs[0,1].set_title(r'$\sigma^2_y$')
+    axs[0,2].plot(t, cov_ukf[:,2,2]/1e6)
+    axs[0,2].set_title(r'$\sigma^2_z$')
+    axs[1,0].plot(t, cov_ukf[:,3,3]/1e6)
+    axs[1,0].set_title(r'$\sigma^2_\dot{x}$')
+    axs[1,1].plot(t, cov_ukf[:,4,4]/1e6)
+    axs[1,1].set_title(r'$\sigma^2_\dot{y}$')
+    axs[1,2].plot(t, cov_ukf[:,5,5]/1e6)
+    axs[1,2].set_title(r'$\sigma^2_\dot{z}$')
+    plt.tight_layout()
     plt.show()
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.plot(t,xs_ukf[:,0]-xs[:,0])
-    ax.plot(t,zs[:,0]-xs[:,0])
-    residual=zs[:,0]-xs_ukf[:,0]
+    ax.plot(t,(xs_ukf[:,0]-xs[:,0])/1e3,label="UKF")
+    ax.plot(t,(zs[:,0]-xs[:,0])/1e3,label='Measurement')
+    ax.set_xlabel('t(s)')
+    ax.set_ylabel('error of x(km)')
+    plt.legend()
     plt.show()
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.plot(t,xs_ukf[:,3]-xs[:,3])
+    ax.plot(t,(xs_ukf[:,3]-xs[:,3])/1e3)
+    ax.set_xlabel('t(s)')
+    ax.set_ylabel('error of vx(km/s)')
     plt.show()
 
 debug = 1
