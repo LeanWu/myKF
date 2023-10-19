@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from numpy.random import randn
 import kf
 
+# 抛物线轨迹测试KF
+
 # 生成测试数据
 def compute_data(x0, y0, vel, theta_deg, noise, count=1, dt=1.):
     "returns track, measurements"    
