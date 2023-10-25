@@ -44,19 +44,13 @@ def KF_run(x0, P0, F, H, Q, R, zs, B=0, u=0):
 
 # 无迹卡尔曼滤波
 
-# 动力学过程方程
-def F_UKF(x, dt):
-    mu = constant.GM_earth
-    y = dynamics.mypropagation(x, dt, mu.value, dt)
-    return y[-1,:]
+# 应用动力学过程方程
+def apply_F_UKF(F_UKF, x, dt):
+    return F_UKF(x, dt)
 
-# 观测方程
-def H_UKF(y):
-    H = np.array([[1., 0., 0., 0., 0., 0.],
-                  [0., 1., 0., 0., 0., 0.],
-                  [0., 0., 1., 0., 0., 0.]])
-    z = np.dot(H, y)
-    return z
+# 应用观测方程
+def apply_H_UKF(H_UKF, y):
+    return H_UKF(y)
 
 # 权重矩阵
 def weights_UKF(alpha, beta, n, kappa):
@@ -92,24 +86,24 @@ def UT(sigmas, Wm, Wc):
     return x, P
 
 # 预测步
-def UKF_predict(x, P, Q, Wm, Wc, alpha, beta, kappa, dt):
+def UKF_predict(x, P, Q, Wm, Wc, alpha, beta, kappa, dt, F_UKF):
     n = len(x)
     sigmas = sigmas_UKF(alpha, beta, kappa, x, P)    
     sigmas_f = np.zeros((2*n+1, n))
     for i in range(2*n+1):
-        sigmas_f[i] = F_UKF(sigmas[i], dt)
+        sigmas_f[i] = apply_F_UKF(F_UKF, sigmas[i], dt)
     x_new, P_new = UT(sigmas_f, Wm, Wc)
     P_new += Q
     return x_new, P_new, sigmas_f
 
 # 更新步
-def UKF_update(z, x, P, R, sigmas_f, Wm, Wc):
+def UKF_update(z, x, P, R, sigmas_f, Wm, Wc, H_UKF):
     nz = len(z)
     nx = len(x)
     sigmas_num = 2*nx+1
     sigmas_h = np.zeros((sigmas_num, nz))
     for i in range(sigmas_num):
-        sigmas_h[i] = H_UKF(sigmas_f[i])
+        sigmas_h[i] = apply_H_UKF(H_UKF, sigmas_f[i])
     
     zp, Pz = UT(sigmas_h, Wm, Wc)
     Pz += R
@@ -127,7 +121,7 @@ def UKF_update(z, x, P, R, sigmas_f, Wm, Wc):
     return x_next, P_next
 
 # 执行无迹卡尔曼滤波
-def UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt):
+def UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt, F_UKF, H_UKF):
     xs, cov = [], []
     x, P = x0, P0
     n = len(x)
@@ -135,10 +129,10 @@ def UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt):
     for z in zs:
         if np.linalg.norm(z-zs[0])==0:
             sigmas_f = sigmas_UKF(alpha, beta, kappa, x, P)
-            x_next, P_next = UKF_update(z, x, P, R, sigmas_f, Wm, Wc)
+            x_next, P_next = UKF_update(z, x, P, R, sigmas_f, Wm, Wc, H_UKF)
         else:
-            x_new, P_new, sigmas_f = UKF_predict(x, P, Q, Wm, Wc, alpha, beta, kappa, dt)
-            x_next, P_next = UKF_update(z, x_new, P_new, R, sigmas_f, Wm, Wc)
+            x_new, P_new, sigmas_f = UKF_predict(x, P, Q, Wm, Wc, alpha, beta, kappa, dt, F_UKF)
+            x_next, P_next = UKF_update(z, x_new, P_new, R, sigmas_f, Wm, Wc, H_UKF)
         x, P = x_next, P_next
         # eigenvalues = np.linalg.eigvals(P)
         # print(eigenvalues)
@@ -148,3 +142,71 @@ def UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt):
         cov.append(P)
     xs, cov = np.array(xs), np.array(cov)
     return xs, cov
+
+
+# 容积卡尔曼滤波
+
+# 应用动力学过程方程
+def apply_F_CKF(F_CKF, x, dt):
+    return F_CKF(x, dt)
+
+# 应用观测方程
+def apply_H_CKF(H_CKF, y):
+    return H_CKF(y)
+
+def ksi_points(n):
+    ksi = np.concatenate((np.sqrt(n)*np.eye(n),-np.sqrt(n)*np.eye(n)),axis=1)
+    return ksi
+
+def points_CKF(x, P, ksi):
+    S = scipy.linalg.cholesky(P)
+    n = len(x)
+    points = np.zeros((2*n,n))
+    for i in range(2*n):
+        points[i] = np.dot(S, ksi[:,i]) + x
+    return points
+
+# 容积转换
+def CT(points, W):
+    n = points.shape[1]    
+    x = np.dot(W, points)
+    P = np.zeros((n,n))
+    for i in range(2*n):
+        y = points[i] - x
+        P += W[i] * np.outer(y,y)
+    return x, P
+
+# 预测步
+def CKF_predict(x, P, Q, W, ksi, dt, F_CKF):
+    n = len(x)
+    points = points_CKF(x, P, ksi)
+    points_f = np.zeros((2*n, n))
+    for i in range(2*n):
+        points_f[i] = apply_F_CKF(F_CKF, points[i], dt)
+    x_new, P_new = CT(points_f, W)
+    P_new += Q
+    return x_new, P_new
+
+# 更新步
+def CKF_update(z, x, P, R, W, ksi, H_UKF):
+    nz = len(z)
+    nx = len(x)
+    points_num = 2*nx
+    points = points_CKF(x, P, ksi)
+    points_h = np.zeros((points_num, nz))
+    for i in range(points_num):
+        points_h[i] = apply_H_UKF(H_UKF, points[i])
+    
+    zp, Pz =  CT(points_h, W)
+    Pz += R
+
+    Pxz = np.zeros((nx, nz))
+    for i in range(points_num):
+        Pxz += W[i] * np.outer(points[i] - x, points_h[i] - zp)
+    K = np.dot(Pxz, np.linalg.inv(Pz))
+
+    x_next = x + np.dot(K, z - zp)
+    P_next = P - np.dot(K, Pz).dot(K.T)
+    # eigenvalues = np.linalg.eigvals(P_next)
+    # print(eigenvalues)
+    return x_next, P_next

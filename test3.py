@@ -14,6 +14,20 @@ import kf
 
 # 定轨测试UKF
 
+# 动力学过程方程
+def F_UKF(x, dt):
+    mu = constant.GM_earth
+    y = dynamics.mypropagation(x, dt, mu.value, dt)
+    return y[-1,:]
+
+# 观测方程
+def H_UKF(y):
+    H = np.array([[1., 0., 0., 0., 0., 0.],
+                  [0., 1., 0., 0., 0., 0.],
+                  [0., 0., 1., 0., 0., 0.]])
+    z = np.dot(H, y)
+    return z
+
 # 生成测试数据
 def compute_data(rv0, noise, count=1, dt=1.):
     "returns track, measurements" 
@@ -28,7 +42,6 @@ def compute_data(rv0, noise, count=1, dt=1.):
     return np.array(xs), np.array(zs)
 
 # 卫星初始状态
-
 Re=constant.R_earth.to(u.m)
 a = Re+1000 * u.km
 ecc = 0.0 * u.one
@@ -93,7 +106,7 @@ kappa = 3 - n
 
 
 # 执行UKF
-xs_ukf, cov_ukf = kf.UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt)
+xs_ukf, cov_ukf = kf.UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt, F_UKF, H_UKF)
 # 轨道展示
 test_plot=1
 if test_plot==1:
