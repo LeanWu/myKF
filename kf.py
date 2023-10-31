@@ -81,8 +81,6 @@ def UT(sigmas, Wm, Wc):
     for k in range(kmax):
         y = sigmas[k] - x
         P += Wc[k] * np.outer(y, y)
-    # eigenvalues = np.linalg.eigvals(P)
-    # print(eigenvalues)
     return x, P
 
 # 预测步
@@ -115,8 +113,6 @@ def UKF_update(z, x, P, R, sigmas_f, Wm, Wc, H_UKF):
 
     x_next = x + np.dot(K, z - zp)
     P_next = P - np.dot(K, Pz).dot(K.T)
-    # eigenvalues = np.linalg.eigvals(P_next)
-    # print(eigenvalues)
 
     return x_next, P_next
 
@@ -134,10 +130,6 @@ def UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt, F_UKF, H_UKF):
             x_new, P_new, sigmas_f = UKF_predict(x, P, Q, Wm, Wc, alpha, beta, kappa, dt, F_UKF)
             x_next, P_next = UKF_update(z, x_new, P_new, R, sigmas_f, Wm, Wc, H_UKF)
         x, P = x_next, P_next
-        # eigenvalues = np.linalg.eigvals(P)
-        # print(eigenvalues)
-        # print(x)
-        # print(P)
         xs.append(x)
         cov.append(P)
     xs, cov = np.array(xs), np.array(cov)
@@ -145,68 +137,170 @@ def UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt, F_UKF, H_UKF):
 
 
 # 容积卡尔曼滤波
-
-# 应用动力学过程方程
-def apply_F_CKF(F_CKF, x, dt):
-    return F_CKF(x, dt)
-
-# 应用观测方程
-def apply_H_CKF(H_CKF, y):
-    return H_CKF(y)
-
 def ksi_points(n):
     ksi = np.concatenate((np.sqrt(n)*np.eye(n),-np.sqrt(n)*np.eye(n)),axis=1)
     return ksi
 
-def points_CKF(x, P, ksi):
-    S = scipy.linalg.cholesky(P)
+# # 应用动力学过程方程
+# def apply_F_CKF(F_CKF, x, dt):
+#     return F_CKF(x, dt)
+
+# # 应用观测方程
+# def apply_H_CKF(H_CKF, y):
+#     return H_CKF(y)
+
+# # 容积点生成
+# def points_CKF(x, P, ksi):
+#     S = scipy.linalg.cholesky(P, lower=True)
+#     n = len(x)
+#     points = np.zeros((2*n,n))
+#     for i in range(2*n):
+#         points[i] = np.dot(S, ksi[:,i]) + x
+#     return points
+
+# # 容积转换
+# def CT(points, W):
+#     n = points.shape[1]    
+#     x = np.dot(W, points)
+#     P = np.zeros((n,n))
+#     for i in range(2*n):
+#         y = points[i] - x
+#         P += W[i] * np.outer(y,y)
+#     return x, P
+
+# # 预测步
+# def CKF_predict(x, P, Q, W, ksi, dt, F_CKF):
+#     n = len(x)
+#     points = points_CKF(x, P, ksi)
+#     points_f = np.zeros((2*n, n))
+#     for i in range(2*n):
+#         points_f[i] = apply_F_CKF(F_CKF, points[i], dt)
+#     x_new, P_new = CT(points_f, W)
+#     P_new += Q
+#     return x_new, P_new
+
+# # 更新步
+# def CKF_update(z, x, P, R, W, ksi, H_CKF):
+#     nz = len(z)
+#     nx = len(x)
+#     points_num = 2*nx
+#     points = points_CKF(x, P, ksi)
+#     points_h = np.zeros((points_num, nz))
+#     for i in range(points_num):
+#         points_h[i] = apply_H_UKF(H_CKF, points[i])
+    
+#     zp, Pz =  CT(points_h, W)
+#     Pz += R
+
+#     Pxz = np.zeros((nx, nz))
+#     for i in range(points_num):
+#         Pxz += W[i] * np.outer(points[i] - x, points_h[i] - zp)
+#     K = np.dot(Pxz, np.linalg.inv(Pz))
+
+#     x_next = x + np.dot(K, z - zp)
+#     P_next = P - np.dot(K, Pz).dot(K.T)
+#     return x_next, P_next
+
+# # 执行容积卡尔曼滤波
+# def CKF_run(x0, P0, Q, R, zs, dt, F_CKF, H_CKF):
+#     xs, cov = [], []
+#     x, P = x0, P0
+#     n = len(x)
+#     ksi = ksi_points(n)
+#     W = np.ones(2*n)/2/n
+#     for z in zs:
+#         if np.linalg.norm(z-zs[0])==0:
+#             x_next, P_next = CKF_update(z, x, P, R, W, ksi, H_CKF)
+#         else:
+#             x_new, P_new = CKF_predict(x, P, Q, W, ksi, dt, F_CKF)
+#             x_next, P_next = CKF_update(z, x_new, P_new, R, W, ksi, H_CKF)
+#         x, P = x_next, P_next
+#         xs.append(x)
+#         cov.append(P)
+#     xs, cov = np.array(xs), np.array(cov)
+#     return xs, cov
+
+# 平方根容积卡尔曼滤波
+
+# 应用动力学过程方程
+def apply_F_SRCKF(F_SRCKF, x, dt):
+    return F_SRCKF(x, dt)
+
+# 应用观测方程
+def apply_H_SRCKF(H_SRCKF, y):
+    return H_SRCKF(y)
+
+# 容积点生成
+def points_SRCKF(x, S, ksi):
     n = len(x)
     points = np.zeros((2*n,n))
     for i in range(2*n):
         points[i] = np.dot(S, ksi[:,i]) + x
     return points
 
-# 容积转换
-def CT(points, W):
+# 平方根容积转换
+def SRCT(points, W, noiseMatrix):
     n = points.shape[1]    
-    x = np.dot(W, points)
+    x = np.dot(W,points)
     P = np.zeros((n,n))
-    for i in range(2*n):
-        y = points[i] - x
-        P += W[i] * np.outer(y,y)
-    return x, P
+    x_residual = (points - x)/np.sqrt(2*n)
+    noiseMatrix = noiseMatrix + 1e-12*np.eye(len(noiseMatrix),len(noiseMatrix))
+    M = np.concatenate((x_residual.T, scipy.linalg.cholesky(noiseMatrix, lower=True)), axis=1)
+    Q, R = np.linalg.qr(M.T)
+    S = R.T
+    return x, S
 
 # 预测步
-def CKF_predict(x, P, Q, W, ksi, dt, F_CKF):
+def SRCKF_predict(x, S, Q, W, ksi, dt, F_SRCKF):
     n = len(x)
-    points = points_CKF(x, P, ksi)
+    points = points_SRCKF(x, S, ksi)
     points_f = np.zeros((2*n, n))
     for i in range(2*n):
-        points_f[i] = apply_F_CKF(F_CKF, points[i], dt)
-    x_new, P_new = CT(points_f, W)
-    P_new += Q
-    return x_new, P_new
+        points_f[i] = apply_F_SRCKF(F_SRCKF, points[i], dt)
+    x_new, S_new = SRCT(points_f, W, Q)
+    return x_new, S_new
 
 # 更新步
-def CKF_update(z, x, P, R, W, ksi, H_UKF):
+def SRCKF_update(z, x, S, R, W, ksi, H_SRCKF):
     nz = len(z)
     nx = len(x)
     points_num = 2*nx
-    points = points_CKF(x, P, ksi)
+    points = points_SRCKF(x, S, ksi)
     points_h = np.zeros((points_num, nz))
     for i in range(points_num):
-        points_h[i] = apply_H_UKF(H_UKF, points[i])
+        points_h[i] = apply_H_UKF(H_SRCKF, points[i])
     
-    zp, Pz =  CT(points_h, W)
-    Pz += R
+    zp, Sz =  SRCT(points_h, W, R)
 
-    Pxz = np.zeros((nx, nz))
-    for i in range(points_num):
-        Pxz += W[i] * np.outer(points[i] - x, points_h[i] - zp)
+    Pz = np.dot(Sz, Sz.T)
+    x_residual = (points - x)/np.sqrt(2*nx)
+    z_residual = (points_h - zp)/np.sqrt(2*nx)
+    Pxz = np.dot(x_residual.T,z_residual)
     K = np.dot(Pxz, np.linalg.inv(Pz))
 
     x_next = x + np.dot(K, z - zp)
-    P_next = P - np.dot(K, Pz).dot(K.T)
-    # eigenvalues = np.linalg.eigvals(P_next)
-    # print(eigenvalues)
-    return x_next, P_next
+    M = np.concatenate((x_residual.T - np.dot(K,z_residual.T), np.dot(K,scipy.linalg.cholesky(R, lower=True))), axis=1)
+    Q, R = np.linalg.qr(M.T)
+    S_next = R.T
+    return x_next, S_next
+
+# 执行平方根容积卡尔曼滤波
+def SRCKF_run(x0, P0, Q, R, zs, dt, F_SRCKF, H_SRCKF):
+    xs, cov = [], []
+    x, P = x0, P0
+    S = scipy.linalg.cholesky(P, lower=True)
+    n = len(x)
+    ksi = ksi_points(n)
+    W = np.ones(2*n)/2/n
+    for z in zs:
+        if np.linalg.norm(z-zs[0])==0:
+            x_next, S_next = SRCKF_update(z, x, S, R, W, ksi, H_SRCKF)
+        else:
+            x_new, S_new = SRCKF_predict(x, S, Q, W, ksi, dt, F_SRCKF)
+            x_next, S_next = SRCKF_update(z, x_new, S_new, R, W, ksi, H_SRCKF)
+        x, S = x_next, S_next
+        P = np.dot(S,S.T)
+        xs.append(x)
+        cov.append(P)
+    xs, cov = np.array(xs), np.array(cov)
+    return xs, cov

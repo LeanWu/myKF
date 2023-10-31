@@ -107,40 +107,42 @@ kappa = 3 - n
 
 # 执行UKF
 xs_ukf, cov_ukf = kf.UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt, F_UKF, H_UKF)
+xs_ckf, cov_ckf = kf.CKF_run(x0, P0, Q, R, zs, dt, F_UKF, H_UKF)
 # 轨道展示
 test_plot=1
 if test_plot==1:
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    xs_1 = xs_ukf/Re.value
-    zs_1 = zs/Re.value
-    ax.plot(xs_1[:,0], xs_1[:,1], xs_1[:,2], label="UKF")
-    ax.scatter(zs_1[:,0], zs_1[:,1], zs_1[:,2], c='red', s=1, facecolors='none', label='Measurement')
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    plt.legend()
-    plt.show()
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    # xs_1 = xs_ukf/Re.value
+    # zs_1 = zs/Re.value
+    # ax.plot(xs_1[:,0], xs_1[:,1], xs_1[:,2], label="UKF")
+    # ax.scatter(zs_1[:,0], zs_1[:,1], zs_1[:,2], c='red', s=1, facecolors='none', label='Measurement')
+    # ax.set_xlabel('X')
+    # ax.set_ylabel('Y')
+    # ax.set_zlabel('Z')
+    # plt.legend()
+    # plt.show()
 
-    fig, axs = plt.subplots(2, 3)
-    axs[0,0].plot(t, cov_ukf[:,0,0]/1e6)
-    axs[0,0].set_title(r'$\sigma^2_x$')
-    axs[0,1].plot(t, cov_ukf[:,1,1]/1e6)
-    axs[0,1].set_title(r'$\sigma^2_y$')
-    axs[0,2].plot(t, cov_ukf[:,2,2]/1e6)
-    axs[0,2].set_title(r'$\sigma^2_z$')
-    axs[1,0].plot(t, cov_ukf[:,3,3]/1e6)
-    axs[1,0].set_title(r'$\sigma^2_\dot{x}$')
-    axs[1,1].plot(t, cov_ukf[:,4,4]/1e6)
-    axs[1,1].set_title(r'$\sigma^2_\dot{y}$')
-    axs[1,2].plot(t, cov_ukf[:,5,5]/1e6)
-    axs[1,2].set_title(r'$\sigma^2_\dot{z}$')
-    plt.tight_layout()
-    plt.show()
+    # fig, axs = plt.subplots(2, 3)
+    # axs[0,0].plot(t, cov_ukf[:,0,0]/1e6)
+    # axs[0,0].set_title(r'$\sigma^2_x$')
+    # axs[0,1].plot(t, cov_ukf[:,1,1]/1e6)
+    # axs[0,1].set_title(r'$\sigma^2_y$')
+    # axs[0,2].plot(t, cov_ukf[:,2,2]/1e6)
+    # axs[0,2].set_title(r'$\sigma^2_z$')
+    # axs[1,0].plot(t, cov_ukf[:,3,3]/1e6)
+    # axs[1,0].set_title(r'$\sigma^2_\dot{x}$')
+    # axs[1,1].plot(t, cov_ukf[:,4,4]/1e6)
+    # axs[1,1].set_title(r'$\sigma^2_\dot{y}$')
+    # axs[1,2].plot(t, cov_ukf[:,5,5]/1e6)
+    # axs[1,2].set_title(r'$\sigma^2_\dot{z}$')
+    # plt.tight_layout()
+    # plt.show()
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.plot(t,(xs_ukf[:,0]-xs[:,0])/1e3,label="UKF")
+    ax.plot(t,(xs_ckf[:,0]-xs[:,0])/1e3,label="CKF")
     ax.plot(t,(zs[:,0]-xs[:,0])/1e3,label='Measurement')
     ax.set_xlabel('t(s)')
     ax.set_ylabel('error of x(km)')
@@ -149,9 +151,11 @@ if test_plot==1:
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.plot(t,(xs_ukf[:,3]-xs[:,3])/1e3)
+    ax.plot(t,(xs_ukf[:,3]-xs[:,3])/1e3,label="UKF")
+    ax.plot(t,(xs_ckf[:,3]-xs[:,3])/1e3,label="CKF")
     ax.set_xlabel('t(s)')
     ax.set_ylabel('error of vx(km/s)')
+    plt.legend()
     plt.show()
 
 debug = 1
