@@ -31,23 +31,6 @@ def mypropagation(rv0,dt,mu,t_step):
 # rv=mypropagation(rv0,1,1,1)
 # print(rv)
 
-# 旋转矩阵
-def xRotationMatrix(angle):
-    return np.array([ [1, 0, 0],
-                      [0, math.cos(angle), -math.sin(angle)],
-                      [0, math.sin(angle), math.cos(angle)]], dtype='float')
-
-def yRotationMatrix(angle):
-    return np.array([ [math.cos(angle), 0, math.sin(angle)],
-                      [0, 1, 0],
-                      [-math.sin(angle), 0, math.cos(angle)]], dtype='float')
-
-def zRotationMatrix(angle):
-    return np.array([ [math.cos(angle), -math.sin(angle), 0],
-                      [math.sin(angle), math.cos(angle), 0],
-                      [0, 0, 1]], dtype='float')
-
-
 # 加推力后的动力学方程(恒加速度)
 def dynamics_thrust(rv,t,mu,a):
     drdv=np.zeros(6)

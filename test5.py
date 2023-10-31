@@ -15,7 +15,6 @@ import kf
 # 小推力定轨测试(SRCFK)
 
 # 生成测试数据
-# 生成测试数据
 def compute_data(rv0, noise, count=1, dt=1.):
     "returns track, measurements" 
     mu = constant.GM_earth.value   
@@ -142,11 +141,6 @@ var = 1
 Q = np.dot(v, np.dot(var, v.T))
 r = noise**2
 R = np.diag([r, r, r])
-# 无迹参数
-alpha = 1
-beta = 2
-n = len(x0)
-kappa = 3 - n
 # 执行CKF
 xs_ckf1, cov_ckf1 = kf.SRCKF_run(x0, P0, Q, R, zs, dt, F_1, H_1)
 
@@ -158,11 +152,6 @@ var = 1e-3
 Q = np.dot(v, np.dot(var, v.T))
 r = noise**2
 R = np.diag([r, r, r])
-# 无迹参数
-alpha = 1
-beta = 2
-n = len(x0)
-kappa = 3 - n
 # 执行CKF
 xs_ckf2, cov_ckf2 = kf.SRCKF_run(x0, P0, Q, R, zs, dt, F_2, H_2)
 
@@ -174,11 +163,6 @@ var = 1e-6
 Q = np.dot(v, np.dot(var, v.T))
 r = noise**2
 R = np.diag([r, r, r])
-# 无迹参数
-alpha = 1
-beta = 2
-n = len(x0)
-kappa = 3 - n
 # 执行CKF
 xs_ckf3, cov_ckf3 = kf.SRCKF_run(x0, P0, Q, R, zs, dt, F_3, H_3)
 
