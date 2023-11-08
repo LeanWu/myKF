@@ -55,8 +55,8 @@ def H_3(y):
     return z
 
 # 读取数据
-data1=np.loadtxt('point_observe_data.txt')
-data2=np.loadtxt('point_observe_para.txt')
+data1=np.loadtxt('.\data\point_observe_data_1.txt')
+data2=np.loadtxt('.\data\point_observe_para_1.txt')
 t = data1[:,0]
 xs = data1[:,1:7]
 zs = data1[:,7:10]
@@ -80,9 +80,9 @@ beta = 2
 n = len(x0)
 kappa = 3 - n
 # 执行滤波
-# xs_ukf, cov_ukf = kf.UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt, F_3, H_3)
+xs_ukf, cov_ukf = kf.UKF_run(x0, P0, Q, R, zs, alpha, beta, kappa, dt, F_3, H_3)
 xs_ckf, cov_ckf = kf.SRCKF_run(x0, P0, Q, R, zs, dt, F_3, H_3)
-xs_ukf = xs_ckf
+# xs_ukf = xs_ckf
 
 # 轨道展示
 test_plot=1

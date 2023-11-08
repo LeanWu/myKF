@@ -304,3 +304,95 @@ def SRCKF_run(x0, P0, Q, R, zs, dt, F_SRCKF, H_SRCKF):
         cov.append(P)
     xs, cov = np.array(xs), np.array(cov)
     return xs, cov
+
+
+# 观测站SRCKF
+# 应用观测方程
+def apply_H_SRCKF_station(H_SRCKF_station, y, t, stationPos0):
+    return H_SRCKF_station(y, t, stationPos0)
+# 更新步
+def SRCKF_update_station(z, x, S, R, W, ksi, H_SRCKF_station, t, stationPos0):
+    nz = len(z)
+    nx = len(x)
+    points_num = 2*nx
+    points = points_SRCKF(x, S, ksi)
+    points_h = np.zeros((points_num, nz))
+    for i in range(points_num):
+        points_h[i] = apply_H_SRCKF_station(H_SRCKF_station, points[i], t, stationPos0)
+    
+    zp, Sz =  SRCT(points_h, W, R)
+
+    Pz = np.dot(Sz, Sz.T)
+    x_residual = (points - x)/np.sqrt(2*nx)
+    z_residual = (points_h - zp)/np.sqrt(2*nx)
+    Pxz = np.dot(x_residual.T,z_residual)
+    K = np.dot(Pxz, np.linalg.inv(Pz))
+
+    x_next = x + np.dot(K, z - zp)
+    M = np.concatenate((x_residual.T - np.dot(K,z_residual.T), np.dot(K,scipy.linalg.cholesky(R, lower=True))), axis=1)
+    Q, R = np.linalg.qr(M.T)
+    S_next = R.T
+    return x_next, S_next
+# 执行平方根容积卡尔曼滤波
+def SRCKF_run_station(x0, P0, Q, R, zs, dt, F_SRCKF, H_SRCKF_station, stationPos0):
+    xs, cov = [], []
+    x, P = x0, P0
+    S = scipy.linalg.cholesky(P, lower=True)
+    n = len(x)
+    ksi = ksi_points(n)
+    W = np.ones(2*n)/2/n
+    t = 0
+    for z in zs:
+        if np.linalg.norm(z-zs[0])==0:
+            x_next, S_next = SRCKF_update_station(z, x, S, R, W, ksi, H_SRCKF_station, t, stationPos0)
+        else:
+            x_new, S_new = SRCKF_predict(x, S, Q, W, ksi, dt, F_SRCKF)
+            x_next, S_next = SRCKF_update_station(z, x_new, S_new, R, W, ksi, H_SRCKF_station, t, stationPos0)
+        x, S = x_next, S_next
+        t += dt
+        P = np.dot(S,S.T)
+        xs.append(x)
+        cov.append(P)
+    xs, cov = np.array(xs), np.array(cov)
+    return xs, cov
+
+# RTS-smoother
+def rts_smoother(Xs, Ps, F_function, Q_noise, dt):
+    num, n = Xs.shape
+    ksi = ksi_points(n)
+    W = np.ones(2*n)/2/n
+    
+    K = np.zeros((num,n,n))
+    x, P, Pp = Xs.copy(), Ps.copy(), Ps.copy()
+
+    for i in range(num-2,-1,-1):
+        # 预测步
+        x_now = x[i]
+        P_now = P[i]
+        S_now = scipy.linalg.cholesky(P_now, lower=True)
+        points = points_SRCKF(x_now, S_now, ksi)
+        points_f = np.zeros((2*n, n))
+        for j in range(2*n):
+            points_f[j] = apply_F_SRCKF(F_function, points[j], dt)
+        x_new, S_new = SRCT(points_f, W, Q_noise)
+
+        # 预测步修正当前步
+        Pp[i] = np.dot(S_new,S_new.T) 
+        # points_num = 2*n
+        # points = points_SRCKF(x_now, S_now, ksi)
+        # points_h = np.zeros((points_num, n))
+        # for j in range(points_num):
+        #     points_h[j] = apply_F_SRCKF(F_function, points[j], dt)
+        
+        # zp, Sz =  SRCT(points_h, W, Q_noise)
+
+        Pz = np.dot(S_new, S_new.T)
+        x_residual = (points - x_now)/np.sqrt(2*n)
+        z_residual = (points_f - x_new)/np.sqrt(2*n)
+        Pxz = np.dot(x_residual.T,z_residual)
+        K[i] = np.dot(Pxz, np.linalg.inv(Pz))
+
+        x[i] += np.dot(K[i], x[i+1]-x_new)
+        P[i] += np.dot(K[i], np.dot(P[i+1]-Pp[i], K[i].T))
+
+    return x, P

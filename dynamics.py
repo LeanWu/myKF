@@ -30,6 +30,9 @@ def mypropagation(rv0,dt,mu,t_step):
 # rv0=np.array([0.6, 0.5, -0.6, 0.7, -0.5, 0.3])
 # rv=mypropagation(rv0,1,1,1)
 # print(rv)
+# rv0=np.array([0.86960342, -0.16077931, -0.05226604, -0.26656077, -0.69818329,  0.70599091])
+# rv=mypropagation(rv0,-1,1,-1)
+# print(rv)
 
 # 加推力后的动力学方程(恒加速度)
 def dynamics_thrust(rv,t,mu,a):

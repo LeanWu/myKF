@@ -28,9 +28,9 @@ def compute_data(stationPos0, rv0, noise_rho, noise_angle, count=1, dt=1.):
     for i in range(count):
         stationPos[0] = (stationPos0[0]+omega*i*dt) % (2*np.pi)
         obs = observe.get_observation(stationPos, xs[i,0:3])
-        zs[i,0] = obs[0] + noise_rho
-        zs[i,1] = obs[1] + noise_angle
-        zs[i,2] = obs[2] + noise_angle
+        zs[i,0] = obs[0] + randn() * noise_rho
+        zs[i,1] = obs[1] + randn() * noise_angle
+        zs[i,2] = obs[2] + randn() * noise_angle
     return np.array(xs), np.array(zs)
 
 def compute_data_thrust(stationPos0, rv0, noise_rho, noise_angle, a, count=1, dt=1.):
@@ -47,9 +47,9 @@ def compute_data_thrust(stationPos0, rv0, noise_rho, noise_angle, a, count=1, dt
     for i in range(count): 
         stationPos[0] = (stationPos0[0]+omega*i*dt) % (2*np.pi)
         obs = observe.get_observation(stationPos, xs[i,0:3])
-        zs[i,0] = obs[0] + noise_rho
-        zs[i,1] = obs[1] + noise_angle
-        zs[i,2] = obs[2] + noise_angle
+        zs[i,0] = obs[0] + randn() * noise_rho
+        zs[i,1] = obs[1] + randn() * noise_angle
+        zs[i,2] = obs[2] + randn() * noise_angle
     return np.array(xs), np.array(zs)
 
 # 卫星初始状态
@@ -72,16 +72,17 @@ print('Orbit Period:',orb.period.to(u.hour))
 
 
 # 测试数据
-noise_rho = 1
-noise_angle = 1
-stationPos0 = np.array([34*np.pi/180,108*np.pi/180])
-a_test = 1e-5
-count1 = 1
-count2 = 4000
+index = 2
+noise_rho = 10
+noise_angle = 0.02*np.pi/180
+stationPos0 = np.array([108*np.pi/180,34*np.pi/180])
+a_test = 1e-2
+count1 = int(1)
+count2 = int(1e4)
 dt = 1
 xs1,zs1 = compute_data(stationPos0, rv0, noise_rho, noise_angle, count1, dt)
 rv1 = xs1[-1,:]
-xs2,zs2 = compute_data_thrust(stationPos0, rv0, noise_rho, noise_angle, a_test, count2, dt)
+xs2,zs2 = compute_data_thrust(stationPos0, rv1, noise_rho, noise_angle, a_test, count2, dt)
 xs = np.concatenate((xs1[0:-1,:], xs2), axis=0)
 zs = np.concatenate((zs1[0:-1,:], zs2), axis=0)
 t = np.linspace(0, (count1+count2-2)*dt, count1+count2-1)
@@ -90,9 +91,9 @@ t = np.linspace(0, (count1+count2-2)*dt, count1+count2-1)
 # 保存数据
 t=t.reshape(-1,1)
 data1 = np.hstack((t,xs,zs))
-np.savetxt('station_observe_data.txt',(data1))
+np.savetxt('.\data\station_observe_data_'+str(index)+'.txt',(data1))
 data2 = np.vstack((noise_rho,noise_angle,stationPos0[0],stationPos0[1],a_test,count1,count2,dt))
-np.savetxt('station_observe_para.txt',(data2))
+np.savetxt('.\data\station_observe_para_'+str(index)+'.txt',(data2))
 
 # 轨道展示
 test_plot=1

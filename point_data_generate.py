@@ -56,8 +56,9 @@ print('Orbit Period:',orb.period.to(u.hour))
 
 
 # 测试数据
-noise = 1
-a_test = 1e-5
+index = 1
+noise = 1e3
+a_test = 1
 count1 = 1
 count2 = 4000
 dt = 1
@@ -72,9 +73,9 @@ t = np.linspace(0, (count1+count2-2)*dt, count1+count2-1)
 # 保存数据
 t=t.reshape(-1,1)
 data1 = np.hstack((t,xs,zs))
-np.savetxt('point_observe_data.txt',(data1))
+np.savetxt('.\data\point_observe_data_'+str(index)+'.txt',(data1))
 data2 = np.vstack((noise,a_test,count1,count2,dt))
-np.savetxt('point_observe_para.txt',(data2))
+np.savetxt('.\data\point_observe_para_'+str(index)+'.txt',(data2))
 
 # 轨道展示
 test_plot=0
