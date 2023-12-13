@@ -356,6 +356,38 @@ def SRCKF_run_station(x0, P0, Q, R, zs, dt, F_SRCKF, H_SRCKF_station, stationPos
     xs, cov = np.array(xs), np.array(cov)
     return xs, cov
 
+def SRCKF_run_multistation(x0, P0, Q, R, zs, dt, F_SRCKF, H_SRCKF_station, stationPos0):
+    xs, cov = [], []
+    x, P = x0, P0
+    S = scipy.linalg.cholesky(P, lower=True)
+    n = len(x)
+    ksi = ksi_points(n)
+    W = np.ones(2*n)/2/n
+    station_num, time_num, zs_num = zs.shape
+    t = 0
+    for i in range(time_num):
+        if i==0:
+            for j in range(station_num):
+                if j==0:
+                    x_next, S_next = SRCKF_update_station(zs[j,i,:], x, S, R, W, ksi, H_SRCKF_station, t, stationPos0[j])
+                else:
+                    x_next, S_next = SRCKF_update_station(zs[j,i,:], x_next, S_next, R, W, ksi, H_SRCKF_station, t, stationPos0[j])            
+        else:
+            x_new, S_new = SRCKF_predict(x, S, Q, W, ksi, dt, F_SRCKF)
+            for j in range(station_num):
+                if j==0:
+                    x_next, S_next = SRCKF_update_station(zs[j,i,:], x_new, S_new, R, W, ksi, H_SRCKF_station, t, stationPos0[j])
+                else:
+                    x_next, S_next = SRCKF_update_station(zs[j,i,:], x_next, S_next, R, W, ksi, H_SRCKF_station, t, stationPos0[j])
+        x, S = x_next, S_next
+        t += dt
+        P = np.dot(S,S.T)
+        xs.append(x)
+        cov.append(P)
+        print(i)
+    xs, cov = np.array(xs), np.array(cov)
+    return xs, cov
+
 # RTS-smoother
 def rts_smoother(Xs, Ps, F_function, Q_noise, dt):
     num, n = Xs.shape
@@ -396,3 +428,52 @@ def rts_smoother(Xs, Ps, F_function, Q_noise, dt):
         P[i] += np.dot(K[i], np.dot(P[i+1]-Pp[i], K[i].T))
 
     return x, P
+
+# FLS-smoother
+def fls_smoother(x0, P0, Q, R, zs, dt, F_SRCKF, H_SRCKF_station, stationPos0, lag_num):
+    n = len(x0)
+    total_num = len(zs)
+    xs = np.zeros((total_num,n))
+    cov = np.zeros((total_num,n,n))
+
+    x, P, stationPos= x0, P0, stationPos0
+    for i in range(total_num):
+        if i+lag_num<=total_num:
+            x_before, P_before = SRCKF_run_station(x, P, Q, R, zs[i:i+lag_num], dt, F_SRCKF, H_SRCKF_station, stationPos)
+            x_after, P_after = rts_smoother(x_before, P_before, F_SRCKF, Q, dt)
+            xs[i], cov[i] = x_after[0,:], P_after[0,:,:]
+            x, P = x_after[1,:], P_after[1,:,:]
+            omega = 2*np.pi/(23*3400+56*60+4)
+            stationPos[0]=(stationPos[0]+omega*dt) % (2*np.pi)            
+        elif i==total_num-lag_num+1:
+            x_before, P_before = SRCKF_run_station(x, P, Q, R, zs[i:total_num], dt, F_SRCKF, H_SRCKF_station, stationPos)
+            x_after, P_after = rts_smoother(x_before, P_before, F_SRCKF, Q, dt)
+            for j in range(len(x_after)):
+                xs[i+j]=x_after[j,:]
+                cov[i+j]=P_after[j,:,:]
+            break
+        print(i)
+    return xs, cov
+
+# 低通滤波
+def low_pass_all(x):
+    n = 3  # 滤波器阶数
+    cut_off = 5*1e-3  # 截止频率
+    b, a = scipy.signal.butter(n, cut_off, 'low')
+    x_filtered = scipy.signal.filtfilt(b, a, x)
+    return x_filtered
+
+# 近实时低通滤波
+def low_pass_smoother(x0, P0, Q, R, zs, dt, F_SRCKF, H_SRCKF_station, stationPos0, lag_num, basic_num):
+    total_num = len(zs)
+    xs, cov = SRCKF_run_station(x0, P0, Q, R, zs, dt, F_SRCKF, H_SRCKF_station, stationPos0)
+
+    i=basic_num+lag_num
+    while i<=total_num:
+        xs[i-lag_num:i,6]=low_pass_all(xs[i-lag_num:i,6])
+        xs[i-lag_num:i,7]=low_pass_all(xs[i-lag_num:i,7])
+        xs[i-lag_num:i,8]=low_pass_all(xs[i-lag_num:i,8])
+        i=i+1           
+        print(i)
+
+    return xs, cov

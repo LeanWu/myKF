@@ -40,6 +40,28 @@ def get_observation(stationPos, r):
     obs=np.array([rho,E,A])
     return obs
 
+def get_observation_R(stationPos, r, R_earth):
+    longitude = stationPos[0] #经度
+    latitude = stationPos[1] #纬度
+    r_station = np.zeros(3)
+    r_station[0] = R_earth * np.cos(latitude) * np.cos(longitude)
+    r_station[1] = R_earth * np.cos(latitude) * np.sin(longitude)
+    r_station[2] = R_earth * np.sin(latitude)
+    r_local=np.dot(yRotationMatrix(latitude-np.pi/2),np.dot(zRotationMatrix(-longitude),r-r_station))
+    for i in range(3):
+        if abs(r_local[i])<1e-12:
+            r_local[i]=0
+    rho = np.linalg.norm(r_local)
+    E = np.arctan(r_local[2] / np.sqrt(r_local[0]**2 + r_local[1]**2))
+    A = np.arctan(r_local[1]/r_local[0])
+    if r_local[0]<0:
+        A = A + np.pi
+    if (r_local[0]==0) & (r_local[1]==0):
+        A = 0
+    A = A % (2*np.pi)
+    obs=np.array([rho,E,A])
+    return obs
+
 # stationPos=np.array([0,np.pi/2])
 # r=np.array([1,0,0])
 # obs=get_observation(stationPos, r)
@@ -55,6 +77,21 @@ def get_r(stationPos, obs):
     r_station[0] = constant.R_earth.value * np.cos(latitude) * np.cos(longitude)
     r_station[1] = constant.R_earth.value * np.cos(latitude) * np.sin(longitude)
     r_station[2] = constant.R_earth.value * np.sin(latitude)
+    r_relative = np.zeros(3)
+    r_relative[0] = obs[0] * np.cos(obs[1]) * np.cos(obs[2])
+    r_relative[1] = obs[0] * np.cos(obs[1]) * np.sin(obs[2])
+    r_relative[2] = obs[0] * np.sin(obs[1])
+    r_abs=np.dot(zRotationMatrix(longitude),np.dot(yRotationMatrix(-latitude+np.pi/2),r_relative))
+    r = r_station + r_abs
+    return r
+
+def get_r_R(stationPos, obs, R_earth):
+    longitude = stationPos[0] #经度
+    latitude = stationPos[1] #纬度
+    r_station = np.zeros(3)
+    r_station[0] = R_earth * np.cos(latitude) * np.cos(longitude)
+    r_station[1] = R_earth * np.cos(latitude) * np.sin(longitude)
+    r_station[2] = R_earth * np.sin(latitude)
     r_relative = np.zeros(3)
     r_relative[0] = obs[0] * np.cos(obs[1]) * np.cos(obs[2])
     r_relative[1] = obs[0] * np.cos(obs[1]) * np.sin(obs[2])

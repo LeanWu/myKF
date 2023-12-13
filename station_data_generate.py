@@ -72,17 +72,22 @@ print('Orbit Period:',orb.period.to(u.hour))
 
 
 # 测试数据
-index = 2
+index = 0
+# noise_rho = 10
+# noise_angle = 0.02*np.pi/180
 noise_rho = 10
 noise_angle = 0.02*np.pi/180
 stationPos0 = np.array([108*np.pi/180,34*np.pi/180])
 a_test = 1e-2
 count1 = int(1)
-count2 = int(1e4)
+count2 = int(10000)
 dt = 1
 xs1,zs1 = compute_data(stationPos0, rv0, noise_rho, noise_angle, count1, dt)
 rv1 = xs1[-1,:]
-xs2,zs2 = compute_data_thrust(stationPos0, rv1, noise_rho, noise_angle, a_test, count2, dt)
+stationPos1 = stationPos0.copy()
+omega = 2*np.pi/(23*3400+56*60+4)
+stationPos1[0] = (stationPos0[0]+omega*count1*dt) % (2*np.pi)
+xs2,zs2 = compute_data_thrust(stationPos1, rv1, noise_rho, noise_angle, a_test, count2, dt)
 xs = np.concatenate((xs1[0:-1,:], xs2), axis=0)
 zs = np.concatenate((zs1[0:-1,:], zs2), axis=0)
 t = np.linspace(0, (count1+count2-2)*dt, count1+count2-1)
@@ -107,9 +112,16 @@ if test_plot==1:
     # plt.legend()
     # plt.show()
 
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    # ax.plot(t,xs[:,0])
+    # plt.show()
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.plot(t,zs[:,0])
+    ax.set_xlabel('t(s)')
+    ax.set_ylabel(r'$\rho$'+'(m)')
     plt.show()
 
     fig = plt.figure()

@@ -58,33 +58,48 @@ print('Orbit Period:',orb.period.to(u.hour))
 # 测试数据
 index = 1
 noise = 1e3
-a_test = 1
+a_test = 0
 count1 = 1
-count2 = 4000
+count2 = 10000
 dt = 1
 xs1,zs1 = compute_data(rv0, noise, count1, dt)
 rv1 = xs1[-1,:]
 xs2,zs2 = compute_data_thrust(rv1, noise, a_test, count2, dt)
-xs = np.concatenate((xs1[0:-1,:], xs2), axis=0)
-zs = np.concatenate((zs1[0:-1,:], zs2), axis=0)
+xs_1 = np.concatenate((xs1[0:-1,:], xs2), axis=0)
+zs_1 = np.concatenate((zs1[0:-1,:], zs2), axis=0)
 t = np.linspace(0, (count1+count2-2)*dt, count1+count2-1)
 # debug = 1
 
+# 测试数据
+a_test = 1e-5
+xs1,zs1 = compute_data(rv0, noise, count1, dt)
+rv1 = xs1[-1,:]
+xs2,zs2 = compute_data_thrust(rv1, noise, a_test, count2, dt)
+xs_2 = np.concatenate((xs1[0:-1,:], xs2), axis=0)
+zs_2 = np.concatenate((zs1[0:-1,:], zs2), axis=0)
+# debug = 1
+
 # 保存数据
-t=t.reshape(-1,1)
-data1 = np.hstack((t,xs,zs))
-np.savetxt('.\data\point_observe_data_'+str(index)+'.txt',(data1))
-data2 = np.vstack((noise,a_test,count1,count2,dt))
-np.savetxt('.\data\point_observe_para_'+str(index)+'.txt',(data2))
+# t=t.reshape(-1,1)
+# data1 = np.hstack((t,xs,zs))
+# np.savetxt('.\data\point_observe_data_'+str(index)+'.txt',(data1))
+# data2 = np.vstack((noise,a_test,count1,count2,dt))
+# np.savetxt('.\data\point_observe_para_'+str(index)+'.txt',(data2))
 
 # 轨道展示
-test_plot=0
+test_plot=1
 if test_plot==1:
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    # ax.plot(xs_1[:,0], xs_1[:,1], xs_1[:,2], label="No")
+    # ax.plot(xs_2[:,0], xs_2[:,1], xs_2[:,2], label="Yes")
+    # ax.set_xlabel('X')
+    # ax.set_ylabel('Y')
+    # ax.set_zlabel('Z')
+    # plt.legend()
+    # plt.show()
+
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot(xs[:,0], xs[:,1], xs[:,2], label="Track")
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    plt.legend()
+    ax = fig.add_subplot(111)
+    ax.plot(t,xs_2[:,0]-xs_1[:,0])
     plt.show()

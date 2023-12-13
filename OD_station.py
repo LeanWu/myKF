@@ -14,18 +14,19 @@ import observe
 
 # 观测变量为测角测距的小推力定轨
 
+
+# def F_1(x, dt):
+#     mu = constant.GM_earth
+#     y = dynamics.mypropagation(x, dt, mu.value, -1)
+#     return y[-1,:]
+
+# def F_2(x, dt):
+#     alpha = 1e-3
+#     mu = constant.GM_earth
+#     y = dynamics.mypropagation_a(x, dt, mu.value, -1, alpha)
+#     return y[-1,:]
+
 # 动力学过程方程
-def F_1(x, dt):
-    mu = constant.GM_earth
-    y = dynamics.mypropagation(x, dt, mu.value, -1)
-    return y[-1,:]
-
-def F_2(x, dt):
-    alpha = 1e-3
-    mu = constant.GM_earth
-    y = dynamics.mypropagation_a(x, dt, mu.value, -1, alpha)
-    return y[-1,:]
-
 def F_3(x, dt):
     alpha = 1e-3
     mu = constant.GM_earth
@@ -42,8 +43,8 @@ def H_station(y, t, stationPos0):
     return obs
 
 # 读取数据
-data1=np.loadtxt('.\data\station_observe_data_2.txt')
-data2=np.loadtxt('.\data\station_observe_para_2.txt')
+data1=np.loadtxt('.\data\station_observe_data_0.txt')
+data2=np.loadtxt('.\data\station_observe_para_0.txt')
 t = data1[:,0]
 xs = data1[:,1:7]
 zs = data1[:,7:10]
@@ -68,6 +69,7 @@ for i in range(num):
     stationPos = np.array([stationPos0[0]+i*dt*omega,stationPos0[1]])
     r_observe[i]=observe.get_r(stationPos, zs[i,:])
 
+
 # 滤波输入
 x0 = np.array([r0[0], r0[1], r0[2], (r1[0]-r0[0])/dt, (r1[1]-r0[1])/dt, (r1[2]-r0[2])/dt, 0, 0, 0, 0, 0, 0])
 P0 = np.diag([1e3,1e3,1e3,10,10,10,1e-2,1e-2,1e-2,1e-2,1e-2,1e-2])
@@ -89,12 +91,22 @@ xs_ckf, cov_ckf = kf.SRCKF_run_station(x0, P0, Q, R, zs, dt, F_3, H_station, sta
 # xs_ckf1, cov_ckf1 = kf.SRCKF_run_station(x0, P0, Q, R, zs, dt, F_1, H_station, stationPos0)
 
 # 光滑处理
-xs_rts, cov_rts=kf.rts_smoother(xs_ckf, cov_ckf, F_3, Q, dt)
+# xs_rts, cov_rts=kf.rts_smoother(xs_ckf, cov_ckf, F_3, Q, dt)
+
+# 滑动光滑
+# lag_num=100
+# xs_fls, cov_fls=kf.fls_smoother(x0, P0, Q, R, zs, dt, F_3, H_station, stationPos0, lag_num)
+
+# 近实时低通滤波
+lag_num=100
+basic_num=3000
+xs_low, cov_low = kf.low_pass_smoother(x0, P0, Q, R, zs, dt, F_3, H_station, stationPos0, lag_num, basic_num)
 
 # 保存数据
 t=t.reshape(-1,1)
-data = np.hstack((t,xs,r_observe,xs_ckf,xs_rts))
-np.savetxt('.\data\calculte_result_2.txt',(data))
+data = np.hstack((t,xs,r_observe,xs_ckf,xs_low))
+# data = np.hstack((t,xs,r_observe,xs_ckf,xs_rts,xs_fls))
+np.savetxt('.\data\calculte_result_0.txt',(data))
 print('finish')
 
 # 轨道展示

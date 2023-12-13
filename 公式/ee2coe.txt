@@ -1,0 +1,65 @@
+void ee2coe(int& flag, double* coe, const double* ee, double mu = 3.98600441800e+14)
+{
+	flag = 0;
+	if (mu <= 0.0 || ee[0] <= 0.0)
+		return;
+
+	double p = ee[0], f = ee[1], g = ee[2], h = ee[3], k = ee[4], L = ee[5];
+	coe[1] = sqrt(f * f + g * g);
+	if (coe[1] == 1.0)
+		coe[0] = 0.5 * p;//抛物线轨道的近星距
+	else
+		coe[0] = p / (fabs(1.0 - coe[1] * coe[1]));//半长轴
+	double temp = sqrt(h * h + k * k);
+	coe[2] = 2.0 * atan(temp);
+	if (temp <= 0.0)
+	{
+		coe[3] = 0.0;//升交点赤经
+//		cout<<"轨道倾角接近0或180度,升交点赤经容易奇异.在此将其置为零."<<endl;
+		if (coe[1] <= 0.0)
+		{
+			coe[4] = 0.0;//近星点幅角
+//			cout<<"偏心率接近0,近星点幅角容易奇异.在此将其置为零."<<endl;        
+			coe[5] = L;//真近点角
+		}
+		else
+		{
+			coe[4] = atan2(g, f); //近星点幅角       
+			coe[5] = L - coe[4];
+		}
+	}
+	else
+	{
+		coe[3] = atan2(k, h);
+		coe[5] = L - coe[3];
+		if (coe[1] <= 0.0)
+		{
+			coe[4] = 0.0;
+			//			cout<<"偏心率接近0,近星点幅角容易奇异.在此将其置为零."<<endl;
+		}
+		else
+		{
+			coe[4] = atan2(g * h - f * k, f * h + g * k);
+			coe[5] = coe[5] - coe[4];
+		}
+	}
+	//转换到[0,2pi)中
+	coe[3] = fmod(coe[3], D2PI);
+	if (coe[3] < 0.0)
+		coe[3] += D2PI;
+	coe[4] = fmod(coe[4], D2PI);
+	if (coe[4] < 0.0)
+		coe[4] += D2PI;
+	coe[5] = fmod(coe[5], D2PI);
+	if (coe[5] < 0.0)
+		coe[5] += D2PI;
+	if (coe[1] >= 1.0)
+	{
+		if (coe[5] > DPI - acos(1.0 / coe[1]))
+			coe[5] -= D2PI;
+		else if (coe[5] < -DPI + acos(1.0 / coe[1]))
+			coe[5] += D2PI;
+	}
+	flag = 1;
+	return;
+}

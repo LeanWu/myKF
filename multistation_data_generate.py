@@ -1,0 +1,162 @@
+import math
+import numpy as np
+import matplotlib.pyplot as plt
+from numpy.random import randn
+
+from astropy import units as u
+from astropy.time import Time
+from poliastro.bodies import Earth
+from poliastro.twobody import Orbit
+import poliastro.constants.general as constant
+
+import dynamics
+import observe
+
+
+# 生成多个测站测试数据(观测角，测距)
+def compute_data(stationPos0, rv0, noise_rho, noise_angle, count=1, dt=1.):
+    "returns track, measurements" 
+    mu = constant.GM_earth.value
+    omega = 2*np.pi/(23*3400+56*60+4)
+    stationPos = np.zeros(2)
+    stationPos[1] = stationPos0[1]
+
+    xs, zs = [[],[]], [[],[]]
+    xs = np.zeros((count,6))
+    zs = np.zeros((count,3))
+    xs = dynamics.mypropagation(rv0, (count-1)*dt, mu, dt)
+    for i in range(count):
+        stationPos[0] = (stationPos0[0]+omega*i*dt) % (2*np.pi)
+        obs = observe.get_observation(stationPos, xs[i,0:3])
+        zs[i,0] = obs[0] + randn() * noise_rho
+        zs[i,1] = obs[1] + randn() * noise_angle
+        zs[i,2] = obs[2] + randn() * noise_angle
+    return np.array(xs), np.array(zs)
+
+def compute_data_thrust(stationPos0, rv0, noise_rho, noise_angle, a, count=1, dt=1.):
+    "returns track, measurements" 
+    mu = constant.GM_earth.value
+    omega = 2*np.pi/(23*3400+56*60+4)
+    stationPos = np.zeros(2)
+    stationPos[1] = stationPos0[1]
+
+    xs, zs = [[],[]], [[],[]]
+    xs = np.zeros((count,6))
+    zs = np.zeros((count,3))
+    xs = dynamics.mypropagation_thrust(rv0, (count-1)*dt, mu, dt, a)
+    for i in range(count): 
+        stationPos[0] = (stationPos0[0]+omega*i*dt) % (2*np.pi)
+        obs = observe.get_observation(stationPos, xs[i,0:3])
+        zs[i,0] = obs[0] + randn() * noise_rho
+        zs[i,1] = obs[1] + randn() * noise_angle
+        zs[i,2] = obs[2] + randn() * noise_angle
+    return np.array(xs), np.array(zs)
+
+# 卫星初始状态
+Re=constant.R_earth.to(u.m)
+a = Re + 1000 * u.km
+ecc = 0.0 * u.one
+inc = 30 * u.deg
+raan = 0 * u.deg
+argp = 0 * u.deg
+nu = 0 * u.deg
+time=Time('2020-01-01 00:00:00',format='iso', scale='utc')
+
+orb=Orbit.from_classical(Earth, a, ecc, inc, raan, argp, nu, time)
+r0=orb.r.to(u.m)
+v0=orb.v.to(u.m/u.second)
+rv0=np.array([r0.value[0],r0.value[1],r0.value[2],v0.value[0],v0.value[1],v0.value[2]])
+np.set_printoptions(precision=2)
+print('rv0:',rv0)
+print('Orbit Period:',orb.period.to(u.hour))
+
+
+# 测试数据
+index = 6
+noise_rho = 10
+noise_angle = 0.02*np.pi/180
+stationPos10 = np.array([108*np.pi/180,34*np.pi/180])
+stationPos20 = np.array([0*np.pi/180,34*np.pi/180])
+stationPos30 = np.array([0*np.pi/180,0*np.pi/180])
+a_test = 1e-2
+count1 = int(1)
+count2 = int(10000)
+dt = 1
+
+xs1,zs1 = compute_data(stationPos10, rv0, noise_rho, noise_angle, count1, dt)
+rv1 = xs1[-1,:]
+stationPos1 = stationPos10.copy()
+omega = 2*np.pi/(23*3400+56*60+4)
+stationPos1[0] = (stationPos10[0]+omega*count1*dt) % (2*np.pi)
+xs2,zs2 = compute_data_thrust(stationPos1, rv1, noise_rho, noise_angle, a_test, count2, dt)
+xs_total1 = np.concatenate((xs1[0:-1,:], xs2), axis=0)
+zs_total1 = np.concatenate((zs1[0:-1,:], zs2), axis=0)
+
+xs1,zs1 = compute_data(stationPos20, rv0, noise_rho, noise_angle, count1, dt)
+rv1 = xs1[-1,:]
+stationPos2 = stationPos20.copy()
+omega = 2*np.pi/(23*3400+56*60+4)
+stationPos2[0] = (stationPos20[0]+omega*count1*dt) % (2*np.pi)
+xs2,zs2 = compute_data_thrust(stationPos2, rv1, noise_rho, noise_angle, a_test, count2, dt)
+xs_total2 = np.concatenate((xs1[0:-1,:], xs2), axis=0)
+zs_total2 = np.concatenate((zs1[0:-1,:], zs2), axis=0)
+
+xs1,zs1 = compute_data(stationPos30, rv0, noise_rho, noise_angle, count1, dt)
+rv1 = xs1[-1,:]
+stationPos3 = stationPos30.copy()
+omega = 2*np.pi/(23*3400+56*60+4)
+stationPos3[0] = (stationPos30[0]+omega*count1*dt) % (2*np.pi)
+xs2,zs2 = compute_data_thrust(stationPos3, rv1, noise_rho, noise_angle, a_test, count2, dt)
+xs_total3 = np.concatenate((xs1[0:-1,:], xs2), axis=0)
+zs_total3 = np.concatenate((zs1[0:-1,:], zs2), axis=0)
+
+t = np.linspace(0, (count1+count2-2)*dt, count1+count2-1)
+# debug = 1
+
+# 保存数据
+t=t.reshape(-1,1)
+data1 = np.hstack((t,xs_total1,zs_total1,zs_total2,zs_total3))
+np.savetxt('.\data\station_observe_data_'+str(index)+'.txt',(data1))
+data2 = np.vstack((noise_rho,noise_angle,stationPos10[0],stationPos10[1],stationPos20[0],stationPos20[1],stationPos30[0],stationPos30[1],a_test,count1,count2,dt))
+np.savetxt('.\data\station_observe_para_'+str(index)+'.txt',(data2))
+
+# 轨道展示
+test_plot=1
+if test_plot==1:
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    # ax.plot(xs[:,0], xs[:,1], xs[:,2], label="Track")
+    # ax.set_xlabel('X')
+    # ax.set_ylabel('Y')
+    # ax.set_zlabel('Z')
+    # plt.legend()
+    # plt.show()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(t,xs_total1[:,0])
+    # ax.plot(t,xs_total2[:,0]-xs_total1[:,0])
+    plt.show()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(t,zs_total1[:,0])
+    ax.plot(t,zs_total2[:,0])
+    ax.plot(t,zs_total3[:,0])
+    plt.show()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(t,zs_total1[:,1])
+    ax.plot(t,zs_total2[:,1])
+    ax.plot(t,zs_total3[:,1])
+    plt.show()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(t,zs_total1[:,2])
+    ax.plot(t,zs_total2[:,2])
+    ax.plot(t,zs_total3[:,2])
+    plt.show()
+
+debug = 1
